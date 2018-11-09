@@ -17,6 +17,7 @@ import org.springframework.web.reactive.function.server.ServerRequest
 import org.springframework.web.reactive.function.server.ServerResponse
 import org.springframework.web.reactive.function.server.router
 import reactor.core.publisher.Mono
+import reactor.core.publisher.doOnError
 
 @SpringBootApplication
 class BootKotlinExampleApplication
@@ -55,13 +56,32 @@ class WebfluxRouters(val properties: BootKotlinExampleApplicationProperties) {
 
 // filters
 class EchoFilter : HandlerFilterFunction<ServerResponse, ServerResponse> {
-    override fun filter(request: ServerRequest, next: HandlerFunction<ServerResponse>): Mono<ServerResponse> =
-        try {
-            Log.start("echoFilter")
-            next.handle(request)
-        } finally {
-            Log.end("echoFilter")
-        }
+
+    companion object {
+        val log = LoggerFactory.getLogger(EchoFilter::class.java)!!
+    }
+
+    override fun filter(request: ServerRequest, next: HandlerFunction<ServerResponse>): Mono<ServerResponse> {
+        Log.start("echoFilter")
+        return next.handle(request)
+            .doOnEach {
+                log.info(">> filter#doOnEach, signal.name=${it.type.name}")
+            }.doOnSuccessOrError { _, _ ->
+                log.info(">> filter#doOnSuccessOrError")
+            }.doOnSuccess {
+                log.info(">> filter#doOnSuccess, status=${it.statusCode()}")
+            }.doOnError {// FIXME can't handle exception....
+                log.warn(">> filter#doOnError, cause=${it?.message}")
+            }.doOnError(UnsupportedOperationException::class.java) { // FIXME can't handle exception....
+                log.warn(">> filter#doOnError with class), cause=${it?.message}")
+            }.doAfterSuccessOrError { _, _ ->
+                log.info(">> filter#doAfterSuccessOrError")
+            }.doAfterTerminate {
+                log.info(">> filter#doAfterTerminate")
+            }.doFinally {
+                Log.end("echoFilter")
+            }
+    }
 }
 
 fun json(body: Any, status: HttpStatus = HttpStatus.OK) = ServerResponse.status(status)
@@ -71,12 +91,33 @@ fun json(body: Any, status: HttpStatus = HttpStatus.OK) = ServerResponse.status(
 @Component
 class EchoHandler {
 
+    companion object {
+        val log = LoggerFactory.getLogger(EchoHandler::class.java)!!
+    }
+
     data class ReplyMessage(val message: String = "")
 
-    fun get(request: ServerRequest): Mono<ServerResponse> = try {
+    data class ErrorMessage(val status: Int, val message: String = "error")
+
+    @Throws(Exception::class)
+    fun get(request: ServerRequest): Mono<ServerResponse> {
         Log.start("echoHandler")
-        json(ReplyMessage("Hello, " + request.queryParam("echo").orElse("Webflux")))
-    } finally {
-        Log.end("echoHandler")
+        val q = request.queryParam("echo").orElse("Webflux")
+        return when (q) {
+            "error" -> throw UnsupportedOperationException("error!")
+            "400" -> json(ErrorMessage(400, "bad request"), HttpStatus.BAD_REQUEST)
+            else -> json(ReplyMessage("Hello, $q"))
+        }
+            .doOnEach { log.info("handler#doOnEach, signal.name=${it.type.name}") }
+            .doOnSuccessOrError { _, _ -> log.info("handler#doOnSuccessOrError") }
+            .doOnSuccess { log.info("handler#doOnSuccess, status.code=${it.statusCode()}") }
+            .doOnError(UnsupportedOperationException::class.java) {
+                log.warn("handler#doOnError('UnsupportedOperationException')")
+            } // FIXME can't handle exception....
+            .doOnError { ex -> log.warn("handler#doOnError, error.message=${ex.message}") } // FIXME can't handle exception....
+            .doAfterSuccessOrError { _, _ -> log.info(">> handler#doAfterSuccessOrError") }
+            .doAfterTerminate { log.info("handler#doAfterTerminate") }
+            .doOnSuccessOrError { _, _ -> log.warn("handler#doOnSuccessOrError") }
+            .doFinally { Log.end("echoHandler") }
     }
 }
