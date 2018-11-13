@@ -10,7 +10,6 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.http.HttpStatus
-import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.stereotype.Service
 import org.springframework.web.reactive.config.EnableWebFlux
@@ -24,6 +23,8 @@ import org.springframework.web.server.ServerWebExchange
 import org.springframework.web.server.WebFilter
 import org.springframework.web.server.WebFilterChain
 import reactor.core.publisher.Mono
+
+import org.springframework.http.MediaType.APPLICATION_JSON_UTF8
 
 @SpringBootApplication
 @EnableWebFlux
@@ -53,8 +54,9 @@ class WebfluxRouters(val properties: BootKotlinExampleApplicationProperties) {
 
     @Bean
     fun routers(echoHandler: EchoHandler) = router {
-        accept(MediaType.APPLICATION_JSON_UTF8).nest {
+        accept(APPLICATION_JSON_UTF8).nest {
             GET("/echo", echoHandler::get)
+            POST("/echo", echoHandler::post)
         }
     }.filter(EchoFilterFunction())
 }
@@ -105,9 +107,14 @@ class EchoFilterFunction : HandlerFilterFunction<ServerResponse, ServerResponse>
 }
 
 fun json(body: Any, status: HttpStatus = HttpStatus.OK) = ServerResponse.status(status)
-    .contentType(MediaType.APPLICATION_JSON_UTF8).body(BodyInserters.fromObject(body))
+    .contentType(APPLICATION_JSON_UTF8).body(BodyInserters.fromObject(body))
 
 data class ReplyMessage(val message: String = "", val status: Int = 200)
+
+data class PostMessage(
+    val name: String,
+    val age: Int
+)
 
 // -- handler
 @Component
@@ -151,6 +158,10 @@ class EchoHandler(private val echoService: EchoService) {
     } finally {
         Log.end("handler")
     }
+
+    fun post(request: ServerRequest): Mono<ServerResponse> =
+        ServerResponse.ok().contentType(APPLICATION_JSON_UTF8)
+            .body(request.bodyToMono(PostMessage::class.java), PostMessage::class.java)
 }
 
 // service
