@@ -2,6 +2,11 @@
 
 package org.horiga.study.web
 
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -160,11 +165,22 @@ class BootKotlinExampleApplicationHandlerMethodArgumentResolver : HandlerMethodA
 @ConfigurationProperties(prefix = "app.webmvc")
 data class BootKotlinExampleApplicationProperties(
     val threadNamePrefix: String = "async-worker-",
+    val corePoolSize: Int = 0,
     val maxPoolSize: Int = 200,
     val waitForTasksToCompleteOnShutdown: Boolean = true,
     val queueCapacity: Int = 10,
     val awaitTerminationSeconds: Int = 30
 )
+
+@Configuration
+class BootKotlinExampleApplicationConfig {
+    @Bean
+    fun objectMapper(): ObjectMapper = jacksonObjectMapper().registerModule(JavaTimeModule())
+        .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, true)
+        .configure(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS, false)
+        .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
+        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+}
 
 @Configuration
 @EnableConfigurationProperties(BootKotlinExampleApplicationProperties::class)
@@ -173,31 +189,31 @@ class BootKotlinExampleApplicationWebMvcConfigurer(
 ) : WebMvcConfigurer {
 
     class MdcTaskDecorator : TaskDecorator {
-        override fun decorate(runnable: Runnable): Runnable {
-            val txid = RequestContextHolder.currentRequestAttributes().getAttribute(
+        override fun decorate(runnable: Runnable): Runnable =
+            (RequestContextHolder.currentRequestAttributes().getAttribute(
                 TRANSACTION_ID,
                 RequestAttributes.SCOPE_REQUEST
-            ) as String
-            try {
-                Log.start("taskDecorator(outer)", txid)
-                val context = MDC.getCopyOfContextMap() ?: emptyMap()
-
-                // Dispatch IO thread to asyncTaskExecutor thread
-                return Runnable {
-                    try {
-                        Log.start("taskDecorator(inner)", txid)
-                        MDC.setContextMap(context)
-                        runnable.run()
-                    } finally {
-                        MDC.clear()
-                        Log.end("taskDecorator(inner)", txid)
+            ) as String).let {
+                try {
+                    Log.start("taskDecorator(outer)", it)
+                    val context = MDC.getCopyOfContextMap() ?: emptyMap()
+                    // Dispatch IO thread to asyncTaskExecutor thread
+                    Runnable {
+                        try {
+                            Log.start("taskDecorator(inner)", it)
+                            MDC.setContextMap(context)
+                            runnable.run()
+                        } finally {
+                            MDC.clear()
+                            Log.end("taskDecorator(inner)", it)
+                        }
                     }
+                } finally {
+                    Log.end("taskDecorator(outer)", it)
                 }
-            } finally {
-                Log.end("taskDecorator(outer)", txid)
             }
-        }
     }
+
 
     @Bean
     fun bootKotlinExampleApplicationFilterRegistrationBean() =
@@ -221,7 +237,11 @@ class BootKotlinExampleApplicationWebMvcConfigurer(
     @Bean
     fun asyncTaskExecutor(): AsyncTaskExecutor =
         ThreadPoolTaskExecutor().apply {
-            this.corePoolSize = Runtime.getRuntime().availableProcessors() / 2
+            this.corePoolSize = when {
+                properties.corePoolSize != 0 -> properties.corePoolSize
+                Runtime.getRuntime().availableProcessors() == 1 -> 1
+                else -> Runtime.getRuntime().availableProcessors() / 2
+            }
             this.maxPoolSize = properties.maxPoolSize
             setQueueCapacity(properties.queueCapacity)
             setThreadNamePrefix(properties.threadNamePrefix)
@@ -232,7 +252,7 @@ class BootKotlinExampleApplicationWebMvcConfigurer(
             initialize()
         }
 
-    // kotlin.coroutines
+    // kotlin.coroutine
     @Bean
     fun mvcDispatcher(asyncTaskExecutor: AsyncTaskExecutor) = asyncTaskExecutor.asCoroutineDispatcher()
 }
@@ -247,8 +267,8 @@ data class ReplyMessage(
 )
 
 @RestController
-@RequestMapping("/coroutines")
-class CoroutinesDispatcherController(
+@RequestMapping("/coroutine")
+class CoroutineDispatcherController(
     private val mvcDispatcher: CoroutineDispatcher
 ) {
     @GetMapping
