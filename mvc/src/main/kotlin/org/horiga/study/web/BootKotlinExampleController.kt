@@ -4,7 +4,6 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
 import org.slf4j.LoggerFactory
-import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -47,11 +46,11 @@ data class PostReplyMessage(
 
 @RestController
 @RequestMapping("/coroutine")
-class CoroutineDispatcherController(
+class CoroutineController(
     private val mvcDispatcher: CoroutineDispatcher
 ) {
     companion object {
-        val log = LoggerFactory.getLogger(CoroutineDispatcherController::class.java)!!
+        val log = LoggerFactory.getLogger(CoroutineController::class.java)!!
         val birthdayFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd")!!
     }
 

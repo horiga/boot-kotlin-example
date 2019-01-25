@@ -33,6 +33,12 @@ import org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 import org.springframework.web.servlet.handler.HandlerInterceptorAdapter
+import springfox.documentation.builders.ApiInfoBuilder
+import springfox.documentation.builders.PathSelectors
+import springfox.documentation.builders.RequestHandlerSelectors
+import springfox.documentation.spi.DocumentationType
+import springfox.documentation.spring.web.plugins.Docket
+import springfox.documentation.swagger2.annotations.EnableSwagger2
 import java.util.UUID
 import javax.servlet.FilterChain
 import javax.servlet.http.HttpServletRequest
@@ -172,6 +178,29 @@ class BootKotlinExampleApplicationConfig {
         .configure(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS, false)
         .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+}
+
+@EnableSwagger2
+@Configuration
+class BootKotlinExampleApplicationSwaggerConfig {
+
+    @Bean
+    fun docket() =
+        Docket(DocumentationType.SWAGGER_2)
+            .groupName("Example for spring-boot kotlin with MVC")
+            .select()
+            .apis(RequestHandlerSelectors.any())
+            .paths(PathSelectors.ant("/**"))
+            .build()
+            .apiInfo(
+                ApiInfoBuilder()
+                    .license("OSS：Open Source Software")
+                    .title("spring-boot kotlin example")
+                    .description("GitHub - https://github.com/horiga/boot-kotlin-example")
+                    .version("0.1.0")
+                    .build()
+            )
+            .pathMapping("/")!!
 }
 
 @Configuration
