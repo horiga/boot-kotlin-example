@@ -7,10 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.future.future
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import org.springframework.boot.SpringApplication
@@ -24,10 +21,6 @@ import org.springframework.core.MethodParameter
 import org.springframework.core.task.AsyncTaskExecutor
 import org.springframework.core.task.TaskDecorator
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestParam
-import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.bind.support.WebDataBinderFactory
 import org.springframework.web.context.request.NativeWebRequest
 import org.springframework.web.context.request.RequestAttributes
@@ -41,7 +34,6 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 import org.springframework.web.servlet.handler.HandlerInterceptorAdapter
 import java.util.UUID
-import java.util.concurrent.Callable
 import javax.servlet.FilterChain
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
@@ -214,7 +206,6 @@ class BootKotlinExampleApplicationWebMvcConfigurer(
             }
     }
 
-
     @Bean
     fun bootKotlinExampleApplicationFilterRegistrationBean() =
         FilterRegistrationBean<BootKotlinExampleApplicationFilter>().apply {
@@ -255,49 +246,4 @@ class BootKotlinExampleApplicationWebMvcConfigurer(
     // kotlin.coroutine
     @Bean
     fun mvcDispatcher(asyncTaskExecutor: AsyncTaskExecutor) = asyncTaskExecutor.asCoroutineDispatcher()
-}
-
-data class Message(
-    val txid: String = ""
-)
-
-data class ReplyMessage(
-    val id: String,
-    val name: String
-)
-
-@RestController
-@RequestMapping("/coroutine")
-class CoroutineDispatcherController(
-    private val mvcDispatcher: CoroutineDispatcher
-) {
-    @GetMapping
-    fun get(
-        @RequestParam(value = "name", required = false, defaultValue = "") name: String,
-        message: Message
-    ) =
-        GlobalScope.future(mvcDispatcher) {
-            try {
-                Log.start("Controller", message.txid)
-                ReplyMessage(message.txid, name)
-            } finally {
-                Log.end("Controller", message.txid)
-            }
-        }
-}
-
-@RestController()
-@RequestMapping("/callable")
-class CallableController {
-
-    @GetMapping
-    fun get(@RequestParam(value = "name", required = false, defaultValue = "") name: String,
-            message: Message) = Callable<ReplyMessage> {
-        try {
-            Log.start("Controller", message.txid)
-            ReplyMessage(message.txid, name)
-        } finally {
-            Log.end("Controller", message.txid)
-        }
-    }
 }
