@@ -4,6 +4,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
 import org.slf4j.LoggerFactory
+import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import java.util.UUID
 import java.util.concurrent.Callable
 import javax.validation.Valid
 import javax.validation.constraints.NotBlank
@@ -31,11 +34,17 @@ data class ReplyMessage(
 
 data class PostMessage(
     @field: NotBlank
-    @field: Size(max=30)
+    @field: Size(max = 30)
     val name: String,
+
+    @field: Size(max = 500)
+    val description: String = "",
+
     @field: NotBlank
-    @field: Pattern(regexp = "(19[0-9]{2}|2[0-9]{3})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])", // YYYY-MM-DD, 1900/01/01 ~ 2999/12/31
-                    message = "{validation.PostMessage.birthday.Pattern.message}")
+    @field: Pattern(
+        regexp = "(19[0-9]{2}|2[0-9]{3})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])", // YYYY-MM-DD, 1900/01/01 ~ 2999/12/31
+        message = "{validation.PostMessage.birthday.Pattern.message}"
+    )
     val birthday: String = "1970-1-1"
 )
 
@@ -45,7 +54,7 @@ data class PostReplyMessage(
 )
 
 @RestController
-@RequestMapping("/coroutine")
+@RequestMapping("/api/coroutine")
 class CoroutineController(
     private val mvcDispatcher: CoroutineDispatcher
 ) {
@@ -79,8 +88,8 @@ class CoroutineController(
         }
 }
 
-@RestController()
-@RequestMapping("/callable")
+@RestController
+@RequestMapping("/api/callable")
 class CallableController {
 
     @GetMapping
@@ -95,4 +104,46 @@ class CallableController {
             Log.end("Controller", message.txid)
         }
     }
+}
+
+@RestController
+@RequestMapping("/api/user")
+class UserController(
+    val mvcDispatcher: CoroutineDispatcher,
+    val userService: UserService
+) {
+    @GetMapping("{id}")
+    fun findById(@PathVariable id: String) = GlobalScope.future(mvcDispatcher) {
+        userService.findById(id)
+    }
+
+    @PostMapping
+    fun addUser(@RequestBody @Valid message: PostMessage) = GlobalScope.future(mvcDispatcher) {
+        userService.addUser(message)
+    }
+}
+
+open class NotFoundUserException(
+    private val id: String,
+    message: String = "user is not founded. id=$id"):
+    Exception(message, null)
+
+@Service
+class UserService(private val userRepository: UserRepository) {
+
+    @Throws(NotFoundUserException::class)
+    fun findById(id: String): User =
+        userRepository.findById(id).orElseThrow { NotFoundUserException(id) }
+
+    @Transactional(rollbackFor = [Exception::class])
+    fun addUser(message: PostMessage) =
+        User(UUID.randomUUID().toString(),
+             message.name,
+             message.description,
+             message.birthday.split("-").let { ymd ->
+                 LocalDate.of(ymd[0].toInt(), ymd[1].toInt(), ymd[2].toInt())
+             }).let { user ->
+            userRepository.insert(user)
+            user
+        }
 }

@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import kotlinx.coroutines.asCoroutineDispatcher
+import org.mybatis.spring.annotation.MapperScan
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import org.springframework.boot.SpringApplication
@@ -47,13 +48,13 @@ import javax.servlet.http.HttpServletResponse
 @SpringBootApplication
 class BootKotlinExampleApplication
 
-const val TRANSACTION_ID: String = "txid"
-fun HttpServletRequest.txid() = this.getAttribute(TRANSACTION_ID) as String
-
 fun main(args: Array<String>) {
     // runApplication<BootKotlinExampleApplication>(*args)
     SpringApplication.run(BootKotlinExampleApplication::class.java, *args)
 }
+
+const val TRANSACTION_ID: String = "txid"
+fun HttpServletRequest.txid() = this.getAttribute(TRANSACTION_ID) as String
 
 object Log {
     private val log = LoggerFactory.getLogger(Log::class.java)!!
@@ -171,6 +172,7 @@ data class BootKotlinExampleApplicationProperties(
 )
 
 @Configuration
+@MapperScan("org.horiga.study.web")
 class BootKotlinExampleApplicationConfig {
     @Bean
     fun objectMapper(): ObjectMapper = jacksonObjectMapper().registerModule(JavaTimeModule())
