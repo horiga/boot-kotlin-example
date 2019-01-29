@@ -22,7 +22,7 @@ interface UserRepository {
 
     @Select(
         """
-        SELECT id, name, description, birthday, createdAt
+        SELECT id, name, description, birthday, created_at
         FROM user
         WHERE id = #{id}
     """
@@ -35,7 +35,7 @@ interface UserRepository {
 
     @Insert(
         """
-        INSERT INTO user(id, name, description, birthday, createdAt)
+        INSERT INTO user(id, name, description, birthday, created_at)
         VALUES(#{id}, #{name}, #{description}, #{birthday}, NOW())
     """
     )

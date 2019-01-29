@@ -4,6 +4,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.future.future
 import org.slf4j.LoggerFactory
+import org.springframework.security.core.annotation.AuthenticationPrincipal
+import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.GetMapping
@@ -112,13 +114,22 @@ class UserController(
     val mvcDispatcher: CoroutineDispatcher,
     val userService: UserService
 ) {
-    @GetMapping("{id}")
-    fun findById(@PathVariable id: String) = GlobalScope.future(mvcDispatcher) {
-        userService.findById(id)
+    companion object {
+        val log = LoggerFactory.getLogger(UserController::class.java)!!
     }
 
+    @GetMapping("{id}")
+    fun findById(@AuthenticationPrincipal accessUser: UserDetails, @PathVariable id: String) =
+        //Callable<User> {
+        GlobalScope.future(mvcDispatcher) {
+            log.info("@AuthenticationPrincipal#accessUser: $accessUser")
+            userService.findById(id)
+        }
+
     @PostMapping
-    fun addUser(@RequestBody @Valid message: PostMessage) = GlobalScope.future(mvcDispatcher) {
+    fun addUser(@RequestBody @Valid message: PostMessage) =
+        //Callable<User> {
+        GlobalScope.future(mvcDispatcher) {
         userService.addUser(message)
     }
 }

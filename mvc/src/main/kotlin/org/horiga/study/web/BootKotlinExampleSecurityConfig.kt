@@ -45,7 +45,7 @@ data class UserDetailsImpl(
 @ConfigurationProperties(prefix = "app.webmvc.security")
 data class BootKotlinExampleWebSecurityProperties(
     val authPaths: Collection<String> = listOf("/**"),
-    val ignoringPaths: Collection<String> = listOf("")
+    val ignoringPaths: Collection<String> = listOf()
 )
 
 @EnableWebSecurity
@@ -121,14 +121,39 @@ class UnauthorizedHandler : AccessDeniedHandler {
         accessDeniedException: AccessDeniedException?
     ) {
         log.info("UnauthorizedHandler#handle", accessDeniedException)
-        TODO("not implemented")
+        response!!.status = HttpStatus.FORBIDDEN.value()
     }
 }
 
+class UserPrincipal(
+    val original: HttpServletRequest,
+    val accessToken: String,
+    val error: Exception? = null
+)
+
 class PseudoAuthenticationUserDetailsService :
     AuthenticationUserDetailsService<PreAuthenticatedAuthenticationToken> {
+
+    companion object {
+        val log = LoggerFactory.getLogger(PseudoAuthenticationUserDetailsService::class.java)!!
+        const val attributeName = "userDetails"
+    }
+
     override fun loadUserDetails(token: PreAuthenticatedAuthenticationToken?): UserDetails {
-        TODO("not implemented")
+        log.info("AuthenticationUserDetailsService#loadUserDetails")
+
+        val principal = token!!.principal as UserPrincipal
+
+        return principal.original.getAttribute(attributeName) as? UserDetails
+                ?: verifyUserDetailsWithPrincipal(principal).let {
+            principal.original.setAttribute(attributeName, it)
+            it
+        }
+    }
+
+    private fun verifyUserDetailsWithPrincipal(principal: UserPrincipal): UserDetails {
+        log.info("AuthenticationUserDetailsService#verifyUserDetailsWithPrincipal")
+        return UserDetailsImpl("id@dummy_user")
     }
 }
 
@@ -140,11 +165,11 @@ class PseudoPreAuthenticatedProcessingFilter : AbstractPreAuthenticatedProcessin
 
     override fun getPreAuthenticatedCredentials(request: HttpServletRequest?): Any {
         log.info("PseudoPreAuthenticatedProcessingFilter#getPreAuthenticatedCredentials")
-        TODO("not implemented")
+        return "pseudo"
     }
 
     override fun getPreAuthenticatedPrincipal(request: HttpServletRequest?): Any {
         log.info("PseudoPreAuthenticatedProcessingFilter#getPreAuthenticatedPrincipal")
-        TODO("not implemented")
+        return UserPrincipal(request!!, "dummy_token")
     }
 }
