@@ -6,6 +6,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.http.HttpStatus
 import org.springframework.security.access.AccessDeniedException
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException
+import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.builders.WebSecurity
@@ -16,8 +18,8 @@ import org.springframework.security.core.AuthenticationException
 import org.springframework.security.core.GrantedAuthority
 import org.springframework.security.core.userdetails.AuthenticationUserDetailsService
 import org.springframework.security.core.userdetails.UserDetails
-import org.springframework.security.web.AuthenticationEntryPoint
 import org.springframework.security.web.access.AccessDeniedHandler
+import org.springframework.security.web.authentication.HttpStatusEntryPoint
 import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationProvider
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken
@@ -68,7 +70,7 @@ class BootKotlinExampleSecurityConfig(
             setAuthenticationManager(authenticationManager())
         })
             .exceptionHandling()
-            .authenticationEntryPoint(UnauthorizedEntryPoint())
+            .authenticationEntryPoint(HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
             .accessDeniedHandler(UnauthorizedHandler())
 
         http.formLogin().disable()
@@ -93,22 +95,6 @@ class BootKotlinExampleSecurityConfig(
         }
 }
 
-class UnauthorizedEntryPoint : AuthenticationEntryPoint {
-
-    companion object {
-        val log = LoggerFactory.getLogger(UnauthorizedEntryPoint::class.java)!!
-    }
-
-    override fun commence(
-        request: HttpServletRequest?,
-        response: HttpServletResponse?,
-        authException: AuthenticationException?
-    ) {
-        log.info("UnauthorizedEntryPoint#commence", authException)
-        response!!.status = HttpStatus.UNAUTHORIZED.value()
-    }
-}
-
 class UnauthorizedHandler : AccessDeniedHandler {
 
     companion object {
@@ -128,7 +114,7 @@ class UnauthorizedHandler : AccessDeniedHandler {
 class UserPrincipal(
     val original: HttpServletRequest,
     val accessToken: String,
-    val error: Exception? = null
+    val error: AuthenticationException? = null
 )
 
 class PseudoAuthenticationUserDetailsService :
@@ -140,20 +126,40 @@ class PseudoAuthenticationUserDetailsService :
     }
 
     override fun loadUserDetails(token: PreAuthenticatedAuthenticationToken?): UserDetails {
-        log.info("AuthenticationUserDetailsService#loadUserDetails")
 
-        val principal = token!!.principal as UserPrincipal
+        // PseudoPreAuthenticatedProcessingFilter#getPreAuthenticatedCredentials
+        val credentials = token!!.credentials as String
+        // PseudoPreAuthenticatedProcessingFilter#getPreAuthenticatedPrincipal
+        val principal = token.principal as UserPrincipal
+
+        log.info("AuthenticationUserDetailsService#loadUserDetails, credentials=$credentials, principal=$principal")
 
         return principal.original.getAttribute(attributeName) as? UserDetails
-                ?: verifyUserDetailsWithPrincipal(principal).let {
-            principal.original.setAttribute(attributeName, it)
-            it
-        }
+                ?: loadUserDetailsWithUserPrincipal(principal).let {
+                    principal.original.setAttribute(attributeName, it)
+                    it
+                }
     }
 
-    private fun verifyUserDetailsWithPrincipal(principal: UserPrincipal): UserDetails {
+    @Throws(AuthenticationException::class)
+    private fun loadUserDetailsWithUserPrincipal(principal: UserPrincipal): UserDetails {
         log.info("AuthenticationUserDetailsService#verifyUserDetailsWithPrincipal")
-        return UserDetailsImpl("id@dummy_user")
+
+        if (principal.error != null) throw principal.error
+
+        // Authorization: Bearer <token>
+        return principal.accessToken.trim().split(Regex("\\s+")).let {
+            if (it.size < 2)
+                throw BadCredentialsException("Bad credentials, ${principal.accessToken}")
+
+            // TODO: ここでユーザ認証してあげる
+            // - トークンの有効期限切れ、そもそも有効かとか、もろもろ、だめなら AuthenticationException 関連をスローすると
+            //   authenticationEntryPoint に登録したハンドラで後処理されるみたいだ
+
+            log.info("credential validation: scheme=[${it[0]}] token=[${it[1]}]")
+
+            UserDetailsImpl("id@${it[1]}")
+        }
     }
 }
 
@@ -165,11 +171,19 @@ class PseudoPreAuthenticatedProcessingFilter : AbstractPreAuthenticatedProcessin
 
     override fun getPreAuthenticatedCredentials(request: HttpServletRequest?): Any {
         log.info("PseudoPreAuthenticatedProcessingFilter#getPreAuthenticatedCredentials")
-        return "pseudo"
+        return request!!.getHeader("Authorization") ?: ""
     }
 
     override fun getPreAuthenticatedPrincipal(request: HttpServletRequest?): Any {
         log.info("PseudoPreAuthenticatedProcessingFilter#getPreAuthenticatedPrincipal")
-        return UserPrincipal(request!!, "dummy_token")
+        val accessToken = request!!.getHeader("Authorization") ?: ""
+        return if (accessToken.isNotBlank()) UserPrincipal(request, accessToken)
+        else {
+            UserPrincipal(
+                request,
+                "",
+                AuthenticationCredentialsNotFoundException("There is no 'Authorization' header or values")
+            )
+        }
     }
 }
