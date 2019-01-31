@@ -1,10 +1,13 @@
 package org.horiga.study.web
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.common.net.HttpHeaders
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException
 import org.springframework.security.authentication.BadCredentialsException
@@ -18,8 +21,8 @@ import org.springframework.security.core.AuthenticationException
 import org.springframework.security.core.GrantedAuthority
 import org.springframework.security.core.userdetails.AuthenticationUserDetailsService
 import org.springframework.security.core.userdetails.UserDetails
+import org.springframework.security.web.AuthenticationEntryPoint
 import org.springframework.security.web.access.AccessDeniedHandler
-import org.springframework.security.web.authentication.HttpStatusEntryPoint
 import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationProvider
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken
@@ -46,21 +49,22 @@ data class UserDetailsImpl(
 
 @ConfigurationProperties(prefix = "app.webmvc.security")
 data class BootKotlinExampleWebSecurityProperties(
-    val authPaths: Collection<String> = listOf("/**"),
+    val authPaths: Collection<String> = listOf("/api/**"),
     val ignoringPaths: Collection<String> = listOf()
 )
 
 @EnableWebSecurity
 @EnableConfigurationProperties(BootKotlinExampleWebSecurityProperties::class)
 class BootKotlinExampleSecurityConfig(
-    val properties: BootKotlinExampleWebSecurityProperties
+    val properties: BootKotlinExampleWebSecurityProperties,
+    val objectMapper: ObjectMapper
 ) : WebSecurityConfigurerAdapter() {
 
     override fun configure(http: HttpSecurity) {
         http.cors()
             .and()
             .authorizeRequests()
-            .antMatchers(*properties.authPaths.toTypedArray())
+            .antMatchers(*properties.authPaths.toTypedArray()) // 1.
             .authenticated()
             .and()
             .sessionManagement()
@@ -69,9 +73,10 @@ class BootKotlinExampleSecurityConfig(
         http.addFilter(PseudoPreAuthenticatedProcessingFilter().apply {
             setAuthenticationManager(authenticationManager())
         })
+            .antMatcher("/api/**") // NOTE: ここのFilterに対するurl-patternは`1.`のantMatchersは適用されない
             .exceptionHandling()
-            .authenticationEntryPoint(HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
-            .accessDeniedHandler(UnauthorizedHandler())
+            .authenticationEntryPoint(PseudoAuthenticationEntryPoint(objectMapper))
+            .accessDeniedHandler(PseudoUnauthorizedHandler(objectMapper))
 
         http.formLogin().disable()
         http.httpBasic().disable()
@@ -95,10 +100,29 @@ class BootKotlinExampleSecurityConfig(
         }
 }
 
-class UnauthorizedHandler : AccessDeniedHandler {
+class PseudoAuthenticationEntryPoint(private val objectMapper: ObjectMapper) : AuthenticationEntryPoint {
 
     companion object {
-        val log = LoggerFactory.getLogger(UnauthorizedHandler::class.java)!!
+        val log = LoggerFactory.getLogger(PseudoAuthenticationEntryPoint::class.java)!!
+    }
+
+    override fun commence(
+        request: HttpServletRequest?,
+        response: HttpServletResponse?,
+        authException: AuthenticationException?
+    ) {
+        log.info("PseudoAuthenticationEntryPoint#commence", authException)
+        response!!.status = HttpStatus.UNAUTHORIZED.value()
+        response.setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_UTF8_VALUE)
+        mapOf("error_message" to authException?.message)
+        response.writer.print(objectMapper.writeValueAsString(mapOf("error_message" to authException?.message)))
+    }
+}
+
+class PseudoUnauthorizedHandler(private val objectMapper: ObjectMapper) : AccessDeniedHandler {
+
+    companion object {
+        val log = LoggerFactory.getLogger(PseudoUnauthorizedHandler::class.java)!!
     }
 
     override fun handle(
@@ -108,6 +132,9 @@ class UnauthorizedHandler : AccessDeniedHandler {
     ) {
         log.info("UnauthorizedHandler#handle", accessDeniedException)
         response!!.status = HttpStatus.FORBIDDEN.value()
+        response.setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_UTF8_VALUE)
+        mapOf("error_message" to accessDeniedException?.message)
+        response.writer.print(objectMapper.writeValueAsString(mapOf("error_message" to accessDeniedException?.message)))
     }
 }
 
@@ -143,7 +170,7 @@ class PseudoAuthenticationUserDetailsService :
 
     @Throws(AuthenticationException::class)
     private fun loadUserDetailsWithUserPrincipal(principal: UserPrincipal): UserDetails {
-        log.info("AuthenticationUserDetailsService#verifyUserDetailsWithPrincipal")
+        log.info("AuthenticationUserDetailsService#loadUserDetailsWithUserPrincipal")
 
         if (principal.error != null) throw principal.error
 
@@ -155,6 +182,9 @@ class PseudoAuthenticationUserDetailsService :
             // TODO: ここでユーザ認証してあげる
             // - トークンの有効期限切れ、そもそも有効かとか、もろもろ、だめなら AuthenticationException 関連をスローすると
             //   authenticationEntryPoint に登録したハンドラで後処理されるみたいだ
+
+            if (it[1].equals("access_denied", true))
+                throw AccessDeniedException("access_denied")
 
             log.info("credential validation: scheme=[${it[0]}] token=[${it[1]}]")
 
