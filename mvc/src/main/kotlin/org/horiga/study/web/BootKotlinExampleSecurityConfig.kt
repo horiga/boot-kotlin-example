@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.security.access.AccessDeniedException
@@ -19,6 +20,7 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.core.AuthenticationException
 import org.springframework.security.core.GrantedAuthority
+import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.core.userdetails.AuthenticationUserDetailsService
 import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.security.web.AuthenticationEntryPoint
@@ -26,8 +28,24 @@ import org.springframework.security.web.access.AccessDeniedHandler
 import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationProvider
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken
+import org.springframework.web.cors.CorsConfiguration
+import org.springframework.web.cors.CorsConfigurationSource
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
+
+object Authorities {
+
+    val ADMIN_ROLE = SimpleGrantedAuthority("ADMIN")
+    val DEVELOPER_ROLE = SimpleGrantedAuthority("DEVELOPER")
+    val OPERATOR_ROLE = SimpleGrantedAuthority("OPERATOR")
+    val GUEST_ROLE = SimpleGrantedAuthority("GUEST")
+
+    fun all() = listOf<GrantedAuthority>(ADMIN_ROLE, DEVELOPER_ROLE, OPERATOR_ROLE, GUEST_ROLE)
+
+    fun authority(role: String): GrantedAuthority? =
+        all().firstOrNull { it.authority.equals(role, true) }
+}
 
 data class UserDetailsImpl(
     val id: String
@@ -47,6 +65,12 @@ data class UserDetailsImpl(
     override fun isAccountNonLocked(): Boolean = true
 }
 
+class UserPrincipal(
+    val original: HttpServletRequest,
+    val accessToken: String, // credentials
+    val error: AuthenticationException? = null
+)
+
 @ConfigurationProperties(prefix = "app.webmvc.security")
 data class BootKotlinExampleWebSecurityProperties(
     val authPaths: Collection<String> = listOf("/api/**"),
@@ -61,13 +85,15 @@ class BootKotlinExampleSecurityConfig(
 ) : WebSecurityConfigurerAdapter() {
 
     override fun configure(http: HttpSecurity) {
-        http.cors()
-            .and()
-            .authorizeRequests()
+        http.authorizeRequests()
             .antMatchers(*properties.authPaths.toTypedArray()) // 1.
             .authenticated()
-            .and()
-            .sessionManagement()
+
+        // CORS
+        http.cors()
+            .configurationSource(corsConfigurationSource())
+
+        http.sessionManagement()
             .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
 
         http.addFilter(PseudoPreAuthenticatedProcessingFilter().apply {
@@ -92,6 +118,17 @@ class BootKotlinExampleSecurityConfig(
     override fun configure(auth: AuthenticationManagerBuilder?) {
         auth!!.authenticationProvider(preAuthenticatedAuthenticationProvider())
     }
+
+    @Bean
+    fun corsConfigurationSource(): CorsConfigurationSource =
+        UrlBasedCorsConfigurationSource().apply {
+            registerCorsConfiguration("/api/**", CorsConfiguration().apply {
+                addAllowedOrigin("https://a-site.com")
+                allowedMethods =
+                    listOf(HttpMethod.GET, HttpMethod.POST, HttpMethod.PUT, HttpMethod.DELETE).map { it.name }
+                allowCredentials = true
+            })
+        }
 
     @Bean
     fun preAuthenticatedAuthenticationProvider(): PreAuthenticatedAuthenticationProvider =
@@ -138,12 +175,6 @@ class PseudoUnauthorizedHandler(private val objectMapper: ObjectMapper) : Access
     }
 }
 
-class UserPrincipal(
-    val original: HttpServletRequest,
-    val accessToken: String,
-    val error: AuthenticationException? = null
-)
-
 class PseudoAuthenticationUserDetailsService :
     AuthenticationUserDetailsService<PreAuthenticatedAuthenticationToken> {
 
@@ -152,6 +183,7 @@ class PseudoAuthenticationUserDetailsService :
         const val attributeName = "userDetails"
     }
 
+    @Throws(AuthenticationException::class)
     override fun loadUserDetails(token: PreAuthenticatedAuthenticationToken?): UserDetails {
 
         // PseudoPreAuthenticatedProcessingFilter#getPreAuthenticatedCredentials
@@ -172,7 +204,10 @@ class PseudoAuthenticationUserDetailsService :
     private fun loadUserDetailsWithUserPrincipal(principal: UserPrincipal): UserDetails {
         log.info("AuthenticationUserDetailsService#loadUserDetailsWithUserPrincipal")
 
-        if (principal.error != null) throw principal.error
+        if (principal.error != null) {
+            log.warn("Principal errors", principal.error)
+            throw principal.error
+        }
 
         // Authorization: Bearer <token>
         return principal.accessToken.trim().split(Regex("\\s+")).let {
@@ -184,7 +219,7 @@ class PseudoAuthenticationUserDetailsService :
             //   authenticationEntryPoint に登録したハンドラで後処理されるみたいだ
 
             if (it[1].equals("access_denied", true))
-                throw AccessDeniedException("access_denied")
+                throw AccessDeniedException("access_denied") // こいつは PseudoUnauthorizedHandler ではハンドリングされない
 
             log.info("credential validation: scheme=[${it[0]}] token=[${it[1]}]")
 
@@ -217,3 +252,6 @@ class PseudoPreAuthenticatedProcessingFilter : AbstractPreAuthenticatedProcessin
         }
     }
 }
+
+// TODO:
+// GlobalMethodSecurityConfiguration + @PreAuthorize
