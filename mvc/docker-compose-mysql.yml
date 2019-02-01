@@ -18,14 +18,3 @@ services:
     tty: true
     stdin_open: true
     privileged: true
-
-  redis-cluster:
-    image: grokzen/redis-cluster:4.0.12
-    environment:
-      IP: 0.0.0.0
-      SENTINEL: 'false'
-      STANDALONE: 'true'
-    hostname: redisdocker
-    ports:
-      - '7000-7007:7000-7007'
-      - '5000-5002:5000-5002'
