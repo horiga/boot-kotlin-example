@@ -6,18 +6,25 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.security.access.AccessDeniedException
+import org.springframework.security.access.PermissionEvaluator
+import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler
+import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException
 import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder
+import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity
+import org.springframework.security.config.annotation.method.configuration.GlobalMethodSecurityConfiguration
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.builders.WebSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter
 import org.springframework.security.config.http.SessionCreationPolicy
+import org.springframework.security.core.Authentication
 import org.springframework.security.core.AuthenticationException
 import org.springframework.security.core.GrantedAuthority
 import org.springframework.security.core.authority.SimpleGrantedAuthority
@@ -31,6 +38,7 @@ import org.springframework.security.web.authentication.preauth.PreAuthenticatedA
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
+import java.io.Serializable
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 
@@ -253,5 +261,36 @@ class PseudoPreAuthenticatedProcessingFilter : AbstractPreAuthenticatedProcessin
     }
 }
 
-// TODO:
-// GlobalMethodSecurityConfiguration + @PreAuthorize
+@Configuration
+@EnableGlobalMethodSecurity(prePostEnabled = true)
+class MethodSecurityConfig : GlobalMethodSecurityConfiguration() {
+    override fun createExpressionHandler(): MethodSecurityExpressionHandler =
+        DefaultMethodSecurityExpressionHandler().apply {
+            setPermissionEvaluator(RolePermissionEvaluator())
+        }
+}
+
+class RolePermissionEvaluator() : PermissionEvaluator {
+
+    companion object {
+        val log = LoggerFactory.getLogger(RolePermissionEvaluator::class.java)!!
+    }
+
+    override fun hasPermission(
+        authentication: Authentication?,
+        targetId: Serializable?,
+        targetType: String?,
+        permission: Any?
+    ): Boolean {
+        TODO("not implemented")
+    }
+
+    override fun hasPermission(
+        authentication: Authentication?,
+        targetDomainObject: Any?,
+        permission: Any?
+    ): Boolean {
+        TODO("not implemented")
+    }
+
+}
