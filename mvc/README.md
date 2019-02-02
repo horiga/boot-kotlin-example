@@ -1,6 +1,6 @@
 # boot-kotlin-example-mvc
 
-よくあるWebアプリケーションを `spring-boot 2.x + mvc` と `Kotlin` を使っていろいろ試してみる
+よくあるWebアプリケーションを `spring-boot 2.x + mvc` と `Kotlin` を使っていろいろ試してみる
 
 - `spring-boot 2.x`
   - `kotlinx.coroutine` と `java.util.concurrent.Callable` を使ってみる
