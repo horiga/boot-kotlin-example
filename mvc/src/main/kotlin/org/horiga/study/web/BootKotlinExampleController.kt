@@ -6,8 +6,6 @@ import kotlinx.coroutines.future.future
 import org.slf4j.LoggerFactory
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.core.userdetails.UserDetails
-import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -18,7 +16,6 @@ import org.springframework.web.bind.annotation.RestController
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import java.util.UUID
 import java.util.concurrent.Callable
 import javax.validation.Valid
 import javax.validation.constraints.NotBlank
@@ -123,7 +120,7 @@ class UserController(
 
     @GetMapping("{id}")
     fun findById(@AuthenticationPrincipal accessUser: UserDetails, @PathVariable id: String) =
-        //Callable<User> {
+    //Callable<User> {
         GlobalScope.future(mvcDispatcher) {
             log.info("@AuthenticationPrincipal#accessUser: $accessUser")
             userService.findById(id)
@@ -131,13 +128,20 @@ class UserController(
 
     @PostMapping
     fun addUser(@RequestBody @Valid message: PostMessage) =
-        //Callable<User> {
+    //Callable<User> {
         GlobalScope.future(mvcDispatcher) {
-        userService.addUser(message)
-    }
+            userService.addUser(message)
+        }
+
+    @GetMapping("{id}/role")
+    fun getRoleAuthority(@AuthenticationPrincipal accessUser: UserDetails, @PathVariable id: String) =
+        GlobalScope.future(mvcDispatcher) {
+            userService.getRoleAuthority(id).get()
+        }
 }
 
 open class NotFoundUserException(
     private val id: String,
-    message: String = "user is not founded. id=$id"):
+    message: String = "user is not founded. id=$id"
+) :
     Exception(message, null)
