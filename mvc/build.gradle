@@ -64,6 +64,10 @@ dependencies {
     implementation('org.mybatis.spring.boot:mybatis-spring-boot-starter:2.0.0')
     implementation('org.mybatis:mybatis-typehandlers-jsr310:1.0.2')
     implementation('mysql:mysql-connector-java:8.0.14')
+    
+    // spring-data-xxx: Redis
+    implementation('org.springframework.boot:spring-boot-starter-data-redis')
+    implementation('org.apache.commons:commons-pool2:2.6.0')
 
     testCompile('org.springframework.boot:spring-boot-starter-test') {
         exclude module: 'junit' // exclude JUnit4

@@ -1,13 +1,14 @@
 # boot-kotlin-example-mvc
 
-spring-boot 2.x, mvc と Kotlin を使っていろいろ試してみる
+よくあるWebアプリケーションを `spring-boot 2.x + mvc` と `Kotlin` を使っていろいろ試してみる
 
 - `spring-boot 2.x`
   - `kotlinx.coroutine` と `java.util.concurrent.Callable` を使ってみる
 - `mybatis 3.5` : 新しく出たので使ってみた `java.util.Optional` 対応したらしいので使ってみたが、Kotlinだとそんなうれしくないが...
 - `spring-security`: ちょっと整理のために入れてみる
+- `spring-data-redis`: Redis Cluster
 
-とりあえず、MySQLはDockerで準備する
+とりあえず、MySQL, Redis は Docker で準備する
 
 ```
 $ docker-compose up -d

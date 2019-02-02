@@ -43,6 +43,9 @@ data class PostMessage(
     val description: String = "",
 
     @field: NotBlank
+    val role: String = Authorities.GUEST_ROLE.authority,
+
+    @field: NotBlank
     @field: Pattern(
         regexp = "(19[0-9]{2}|2[0-9]{3})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])", // YYYY-MM-DD, 1900/01/01 ~ 2999/12/31
         message = "{validation.PostMessage.birthday.Pattern.message}"
@@ -138,23 +141,3 @@ open class NotFoundUserException(
     private val id: String,
     message: String = "user is not founded. id=$id"):
     Exception(message, null)
-
-@Service
-class UserService(private val userRepository: UserRepository) {
-
-    @Throws(NotFoundUserException::class)
-    fun findById(id: String): User =
-        userRepository.findById(id).orElseThrow { NotFoundUserException(id) }
-
-    @Transactional(rollbackFor = [Exception::class])
-    fun addUser(message: PostMessage) =
-        User(UUID.randomUUID().toString(),
-             message.name,
-             message.description,
-             message.birthday.split("-").let { ymd ->
-                 LocalDate.of(ymd[0].toInt(), ymd[1].toInt(), ymd[2].toInt())
-             }).let { user ->
-            userRepository.insert(user)
-            user
-        }
-}

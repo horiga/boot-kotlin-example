@@ -21,6 +21,9 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.core.MethodParameter
 import org.springframework.core.task.AsyncTaskExecutor
 import org.springframework.core.task.TaskDecorator
+import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory
+import org.springframework.data.redis.core.ReactiveRedisTemplate
+import org.springframework.data.redis.serializer.RedisSerializationContext
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.web.bind.support.WebDataBinderFactory
 import org.springframework.web.context.request.NativeWebRequest
@@ -180,6 +183,10 @@ class BootKotlinExampleApplicationConfig {
         .configure(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS, false)
         .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+
+    @Bean
+    fun reactiveRedisTemplate(connectionFactory: ReactiveRedisConnectionFactory): ReactiveRedisTemplate<String, String> =
+        ReactiveRedisTemplate(connectionFactory, RedisSerializationContext.string())
 }
 
 @EnableSwagger2
