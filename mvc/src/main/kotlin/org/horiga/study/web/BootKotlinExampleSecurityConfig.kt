@@ -270,7 +270,7 @@ class MethodSecurityConfig : GlobalMethodSecurityConfiguration() {
         }
 }
 
-class RolePermissionEvaluator() : PermissionEvaluator {
+class RolePermissionEvaluator : PermissionEvaluator {
 
     companion object {
         val log = LoggerFactory.getLogger(RolePermissionEvaluator::class.java)!!
@@ -282,6 +282,7 @@ class RolePermissionEvaluator() : PermissionEvaluator {
         targetType: String?,
         permission: Any?
     ): Boolean {
+        log.info("RolePermissionEvaluator#hasPermission(Authentication, Serializable, String, Any)")
         TODO("not implemented")
     }
 
@@ -290,7 +291,7 @@ class RolePermissionEvaluator() : PermissionEvaluator {
         targetDomainObject: Any?,
         permission: Any?
     ): Boolean {
+        log.info("RolePermissionEvaluator#hasPermission(Authentication, Any, Any)")
         TODO("not implemented")
     }
-
 }

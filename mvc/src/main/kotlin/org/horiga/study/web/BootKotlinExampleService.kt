@@ -55,6 +55,7 @@ class UserService(
                 .blockOptional(COMMAND_BLOCK_TIMEOUT_MILLIS).orElseGet {
                     userRepository.findById(id).takeIf { it.isPresent }?.let {
                         val user = it.get()
+                        log.info("Retrieve from RDB. id=${user.id}")
                         redisTemplate.opsForValue().set(user.id, user.role, Duration.ofHours(3))
                         user.role
                     } ?: Authorities.GUEST_ROLE.authority

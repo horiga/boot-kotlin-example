@@ -24,7 +24,7 @@ services:
     environment:
       IP: 0.0.0.0
       SENTINEL: 'false'
-      STANDALONE: 'true'
+      STANDALONE: 'false'
     hostname: redisdocker
     ports:
       - 7000:7000
@@ -33,8 +33,6 @@ services:
       - 7003:7003
       - 7004:7004
       - 7005:7005
-      - 7006:7006
-      - 7007:7007
     tty: true
     stdin_open: true
     privileged: true

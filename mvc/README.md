@@ -4,15 +4,20 @@
 
 - `spring-boot 2.x`
   - `kotlinx.coroutine` と `java.util.concurrent.Callable` を使ってみる
-- `mybatis 3.5` : 新しく出たので使ってみた `java.util.Optional` 対応したらしいので使ってみたが、Kotlinだとそんなうれしくないが...
+- `mybatis 3.5` : 新しく出たので使ってみた `java.util.Optional` 対応したらしいので使ってみた
 - `spring-security`: ちょっと整理のために入れてみる
-- `spring-data-redis`: Redis Cluster
+  - [x] `AbstractPreAuthenticatedProcessingFilter`, `AuthenticationUserDetailsService` など
+  - [x] `EnableGlobalMethodSecurity`, `@PreAuthorize` など
+- `spring-data-redis`: redis-cluster  `ReactiveRedisTemplate`
 
 とりあえず、MySQL, Redis は Docker で準備する
 
 ```
 $ docker-compose up -d
 ```
+
+> **References**
+> https://github.com/Grokzen/docker-redis-cluster
 
 アプリケーションをコマンドラインから起動する
 
