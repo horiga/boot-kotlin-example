@@ -35,6 +35,7 @@ import org.springframework.security.web.access.AccessDeniedHandler
 import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationProvider
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
@@ -93,16 +94,25 @@ class BootKotlinExampleSecurityConfig(
 ) : WebSecurityConfigurerAdapter() {
 
     override fun configure(http: HttpSecurity) {
+
         http.authorizeRequests()
-            .antMatchers(*properties.authPaths.toTypedArray()) // 1.
-            .authenticated()
+            .antMatchers("/hello/**").permitAll()
+            //.antMatchers(*properties.authPaths.toTypedArray()) // 1.
+            .anyRequest().authenticated()
+            .and()
+            .sessionManagement()
+            .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
 
         // CORS
         http.cors()
             .configurationSource(corsConfigurationSource())
 
-        http.sessionManagement()
-            .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+        // CSRF
+//        http.csrf().disable()
+        http.csrf().csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+            .takeIf { properties.ignoringPaths.isNotEmpty() }?.let {
+                it.ignoringAntMatchers(*properties.ignoringPaths.toTypedArray())
+            }
 
         http.addFilter(PseudoPreAuthenticatedProcessingFilter().apply {
             setAuthenticationManager(authenticationManager())
@@ -114,7 +124,7 @@ class BootKotlinExampleSecurityConfig(
 
         http.formLogin().disable()
         http.httpBasic().disable()
-        http.csrf().disable()
+
     }
 
     override fun configure(web: WebSecurity?) {

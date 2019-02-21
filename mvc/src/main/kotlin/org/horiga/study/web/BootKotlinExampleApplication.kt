@@ -57,7 +57,7 @@ fun main(args: Array<String>) {
 }
 
 const val TRANSACTION_ID: String = "txid"
-fun HttpServletRequest.txid() = this.getAttribute(TRANSACTION_ID) as String
+fun HttpServletRequest.txid() = this.getAttribute(TRANSACTION_ID) as? String ?: ""
 
 object Log {
     private val log = LoggerFactory.getLogger(Log::class.java)!!

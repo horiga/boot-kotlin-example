@@ -140,6 +140,15 @@ class UserController(
         }
 }
 
+@RestController
+@RequestMapping("/hello")
+class HelloController(val mvcDispatcher: CoroutineDispatcher) {
+    @GetMapping
+    fun hello() = GlobalScope.future(mvcDispatcher) {
+        "Hello, Kotlin"
+    }
+}
+
 open class NotFoundUserException(
     private val id: String,
     message: String = "user is not founded. id=$id"
