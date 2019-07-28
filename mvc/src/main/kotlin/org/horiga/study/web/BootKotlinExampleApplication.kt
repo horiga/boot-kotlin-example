@@ -7,6 +7,9 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import io.micrometer.core.aop.TimedAspect
+import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.config.MeterFilter
 import kotlinx.coroutines.asCoroutineDispatcher
 import org.mybatis.spring.annotation.MapperScan
 import org.slf4j.LoggerFactory
@@ -177,6 +180,11 @@ data class BootKotlinExampleApplicationProperties(
 @Configuration
 @MapperScan("org.horiga.study.web")
 class BootKotlinExampleApplicationConfig {
+
+    companion object {
+        val metricsDenyUrls: Set<String> = setOf("/actuator")
+    }
+
     @Bean
     fun objectMapper(): ObjectMapper = jacksonObjectMapper().registerModule(JavaTimeModule())
         .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, true)
@@ -187,6 +195,16 @@ class BootKotlinExampleApplicationConfig {
     @Bean
     fun reactiveRedisTemplate(connectionFactory: ReactiveRedisConnectionFactory): ReactiveRedisTemplate<String, String> =
         ReactiveRedisTemplate(connectionFactory, RedisSerializationContext.string())
+
+    @Bean
+    fun timedAspect(meterRegistry: MeterRegistry) = TimedAspect(meterRegistry)
+
+    @Bean
+    fun meterFilter() = MeterFilter.deny {
+        it.getTag("uri")?.let { uri ->
+            metricsDenyUrls.any { prefix -> uri.startsWith(prefix) }
+        } ?: false
+    }
 }
 
 @EnableSwagger2

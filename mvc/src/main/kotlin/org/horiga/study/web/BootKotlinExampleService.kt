@@ -1,10 +1,6 @@
-/*
- * Copyright (c) 2019 LINE Corporation. All rights reserved.
- * LINE Corporation PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
- */
-
 package org.horiga.study.web
 
+import io.micrometer.core.annotation.Timed
 import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.ReactiveRedisTemplate
 import org.springframework.security.core.GrantedAuthority
@@ -27,10 +23,12 @@ class UserService(
     }
 
     @Throws(NotFoundUserException::class)
+    @Timed("find_by_id")
     fun findById(id: String): User =
         userRepository.findById(id).orElseThrow { NotFoundUserException(id) }
 
     @Transactional(rollbackFor = [Exception::class])
+    @Timed("add_user")
     fun addUser(message: PostMessage) =
         User(
             UUID.randomUUID().toString(),

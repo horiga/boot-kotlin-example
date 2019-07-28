@@ -74,8 +74,16 @@ Date: Tue, 29 Jan 2019 11:34:13 GMT
 2019-01-29 20:34:13.554  INFO 72410 --- [nio-8081-exec-6] org.horiga.study.web.Log                 : [75a2b7ef-c016-47a8-a82c-305ce44f43ed][ END ] handlerInterceptor#afterCompletion
 ```
 
+Testcontainers を使ってユニットテストする
 
+[testcontainers](https://www.testcontainers.org/)を使ってテストする
 
+`docker/docker-compose.test.yml` で docker-compose でテストを実施する。詳細はこのあたりの[ドキュメント](https://www.testcontainers.org/modules/docker_compose/)
+
+- testcontainers は現状 JUnit5 をサポートしているが、JUnit4 のライブラリ依存は必要っぽい
+
+> Appendix
+> - **testcontainers-spring-boot** - https://github.com/testcontainers/testcontainers-spring-boot
 
 
 

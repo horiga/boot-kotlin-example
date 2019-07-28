@@ -1,0 +1,27 @@
+version: '2'
+services:
+  mysql:
+    image: mysql:5.7
+    environment:
+      MYSQL_DATABASE: test
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: horiga
+      MYSQL_PASSWORD: horiga
+    ports:
+      - 3306
+    volumes:
+      - ./mysql/ddl:/docker-entrypoint-initdb.d
+      - ./mysql/conf:/etc/mysql
+  redis-cluster:
+    image: grokzen/redis-cluster:4.0.12
+    environment:
+      IP: 0.0.0.0
+      SENTINEL: 'false'
+      STANDALONE: 'false'
+    ports:
+      - 7000
+      - 7001
+      - 7002
+      - 7003
+      - 7004
+      - 7005

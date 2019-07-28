@@ -1,7 +1,7 @@
 version: '3'
 services:
   mysql:
-    build: ./docker/mysql
+    build: mysql
     image: mysql:5.7
     environment:
       MYSQL_DATABASE: test
@@ -12,9 +12,9 @@ services:
       - 3306:3306
     hostname: mysqldocker
     volumes:
-      - ./docker/mysql/initdb.d:/docker-entrypoint-initdb.d
-      - ./docker/mysql/conf/:/etc/mysql/conf.d
-      - ./log/mysql:/var/log/mysql
+      - ./mysql/initdb.d:/docker-entrypoint-initdb.d
+      - ./mysql/conf/:/etc/mysql/conf.d
+      - ./mysql/log:/var/log/mysql
     tty: true
     stdin_open: true
     privileged: true
